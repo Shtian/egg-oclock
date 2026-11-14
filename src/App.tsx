@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Choice, Icon, Stepper } from "./components/Choice";
 import { BoiledHalf, EggInCup, FriedEgg } from "./components/EggArt";
 import { OrderView } from "./components/OrderView";
@@ -26,6 +27,9 @@ const WIZARD: Screen[] = ["kind", "how", "who"];
 
 type HistoryState = { screen: Screen; depth: number };
 
+/** Which way the screens slide: deeper into the wizard, back out of it, or not at all. */
+type Direction = "forward" | "back" | "none";
+
 /** "Angre" brings back `restoreTo` (the order) and/or `restoreNames` (the saved names). */
 type Toast = { id: number; text: string; restoreTo?: OrderLine[]; restoreNames?: string[] };
 const canUndo = (t: Toast) => Boolean(t.restoreTo || t.restoreNames);
@@ -33,6 +37,8 @@ const canUndo = (t: Toast) => Boolean(t.restoreTo || t.restoreNames);
 export default function App({ shared }: { shared: OrderLine[] | null }) {
   const order = useOrder(shared);
   const { theme, toggle: toggleTheme } = useTheme();
+  // Spin the sun/moon only after a tap, not on page load.
+  const [themeTapped, setThemeTapped] = useState(false);
   const { lines } = order;
   const total = totalEggs(lines);
 
@@ -45,7 +51,7 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
   const [who, setWho] = useState("");
   const spec: EggSpec = kind === "kokt" ? { kind, doneness } : { kind, sides, yolk };
 
-  const { screen, go, home } = useScreens(total > 0 ? "order" : "kind");
+  const { screen, direction, go, home } = useScreens(total > 0 ? "order" : "kind");
 
   // Move focus to the new screen's heading so keyboard and screen reader users follow along.
   const heading = useRef<HTMLHeadingElement>(null);
@@ -162,14 +168,22 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
           <button
             type="button"
             className="icon-button theme-toggle"
-            onClick={toggleTheme}
+            onClick={() => {
+              setThemeTapped(true);
+              toggleTheme();
+            }}
             aria-label={theme === "dark" ? "Bytt til lyst tema" : "Bytt til mørkt tema"}
           >
-            <Icon name={theme === "dark" ? "sun" : "moon"} />
+            <span className={themeTapped ? "theme-icon spin" : "theme-icon"} key={theme}>
+              <Icon name={theme === "dark" ? "sun" : "moon"} />
+            </span>
           </button>
           {inWizard && total > 0 ? (
             <button type="button" className="basket" onClick={home}>
-              Bestilling <span className="basket-count">{total}</span>
+              Bestilling{" "}
+              <span className="basket-count" key={total}>
+                {total}
+              </span>
             </button>
           ) : null}
         </header>
@@ -187,7 +201,12 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
           </div>
         )}
 
-        <div className="screen" key={screen}>
+        <div
+          className="screen"
+          key={screen}
+          // Browsers with view transitions animate the swap themselves (see `transition`).
+          data-enter={supportsViewTransitions() ? undefined : direction}
+        >
           {screen === "order" && (
             <OrderView
               headingRef={heading}
@@ -270,9 +289,7 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
               <h2 ref={heading} tabIndex={-1}>
                 Hvordan skal det stekes?
               </h2>
-              <div className="preview" aria-hidden="true">
-                <FriedEgg sides={sides} yolk={yolk} size={112} />
-              </div>
+              <FriedPreview sides={sides} yolk={yolk} />
               <fieldset className="choices pair">
                 <legend>Steking</legend>
                 {SIDES.map((o) => (
@@ -429,22 +446,51 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
 }
 
 /**
+ * The big fried egg on the frying step. Picking a side flips it in the pan and
+ * changing the yolk gives it a wobble, but only once you have changed something:
+ * it sits still while the screen slides in.
+ */
+function FriedPreview({ sides, yolk }: { sides: Sides; yolk: Yolk }) {
+  const [shown, setShown] = useState({ sides, yolk });
+  const [changed, setChanged] = useState(false);
+  if (shown.sides !== sides || shown.yolk !== yolk) {
+    setShown({ sides, yolk });
+    setChanged(true);
+  }
+  return (
+    <div className="preview" aria-hidden="true">
+      {/* Keyed, so each change restarts its animation. */}
+      <div className={changed ? "preview-flip" : undefined} key={sides}>
+        <div className={changed ? "preview-wobble" : undefined} key={yolk}>
+          <FriedEgg sides={sides} yolk={yolk} size={112} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Screen navigation backed by browser history, so the phone's back gesture
  * steps back through the wizard. The order overview is always the bottom entry.
  */
 function useScreens(initial: Screen) {
-  const [screen, setScreen] = useState<Screen>(initial);
+  const [{ screen, direction }, setState] = useState<{ screen: Screen; direction: Direction }>({
+    screen: initial,
+    direction: "none",
+  });
   const depth = useRef(0);
 
   useEffect(() => {
-    const adopt = (state: HistoryState | null) => {
-      depth.current = state?.depth ?? 0;
-      setScreen(state?.screen ?? "order");
+    const adopt = (state: HistoryState | null, animate: boolean) => {
+      const nextDepth = state?.depth ?? 0;
+      const dir: Direction = !animate ? "none" : nextDepth < depth.current ? "back" : "forward";
+      depth.current = nextDepth;
+      transition(dir, () => setState({ screen: state?.screen ?? "order", direction: dir }));
     };
     const existing = history.state as HistoryState | null;
     if (existing?.screen) {
       // Reload (or a second mount): stay where the history says we are.
-      adopt(existing);
+      adopt(existing, false);
     } else {
       history.replaceState({ screen: "order", depth: 0 } satisfies HistoryState, "");
       if (initial !== "order") {
@@ -452,7 +498,9 @@ function useScreens(initial: Screen) {
         history.pushState({ screen: initial, depth: 1 } satisfies HistoryState, "");
       }
     }
-    const onPop = (e: PopStateEvent) => adopt(e.state as HistoryState | null);
+    // A swipe-back gesture (iOS Safari) already animates the page; don't animate it twice.
+    const onPop = (e: PopStateEvent) =>
+      adopt(e.state as HistoryState | null, !e.hasUAVisualTransition);
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
     // Runs once on mount; `initial` is only the starting screen.
@@ -462,14 +510,43 @@ function useScreens(initial: Screen) {
   const go = useCallback((next: Screen) => {
     depth.current += 1;
     history.pushState({ screen: next, depth: depth.current }, "");
-    setScreen(next);
+    transition("forward", () => setState({ screen: next, direction: "forward" }));
   }, []);
 
   /** Back to the order overview, dropping the wizard entries from history. */
   const home = useCallback(() => {
     if (depth.current > 0) history.go(-depth.current);
-    else setScreen("order");
+    else transition("back", () => setState({ screen: "order", direction: "back" }));
   }, []);
 
-  return { screen, go, home };
+  return { screen, direction, go, home };
+}
+
+const supportsViewTransitions = () =>
+  typeof document.startViewTransition === "function" &&
+  !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let activeTransition: ViewTransition | null = null;
+
+/**
+ * Swaps screens inside a view transition, so the old screen slides out as the
+ * new one slides in. `data-nav` on <html> tells the CSS which way to slide.
+ * Without view transition support the update just applies, and the screen's
+ * own CSS enter animation (data-enter) runs instead.
+ */
+function transition(direction: Direction, update: () => void) {
+  if (direction === "none" || !supportsViewTransitions()) {
+    update();
+    return;
+  }
+  const root = document.documentElement;
+  root.dataset.nav = direction;
+  const t = document.startViewTransition(() => flushSync(update));
+  activeTransition = t;
+  void t.finished.finally(() => {
+    if (activeTransition === t) {
+      activeTransition = null;
+      delete root.dataset.nav;
+    }
+  });
 }

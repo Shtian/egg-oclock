@@ -182,6 +182,32 @@ button {
   background: var(--yolk-fill);
   color: var(--art-ink);
   font-variant-numeric: tabular-nums;
+  animation: pop 360ms var(--ease);
+}
+
+/* A little bounce: the basket count when an egg is added, the selected radio dot. */
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+}
+
+.theme-icon {
+  display: grid;
+}
+
+.theme-icon.spin {
+  animation: spin-in 400ms var(--ease);
+}
+
+@keyframes spin-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+  }
 }
 
 .progress {
@@ -218,11 +244,79 @@ button {
   flex: 1;
   display: flex;
   flex-direction: column;
-  animation: enter 220ms var(--ease);
+  view-transition-name: screen;
 }
 
-@keyframes enter {
+/*
+ * Page transitions. Moving deeper into the wizard slides the new screen in
+ * from the right; going back slides it in from the left. The header stays
+ * put, and the bottom buttons crossfade in place instead of sliding.
+ */
+.actions {
+  view-transition-name: actions;
+}
+
+.progress {
+  view-transition-name: progress;
+}
+
+::view-transition-group(*) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(screen) {
+  animation: 160ms ease-in both screen-out;
+}
+
+::view-transition-new(screen) {
+  animation: 280ms var(--ease) 40ms both screen-in;
+}
+
+::view-transition-old(actions),
+::view-transition-new(actions) {
+  animation-duration: 200ms;
+}
+
+:root {
+  --slide: 28px;
+}
+
+:root[data-nav="back"] {
+  --slide: -28px;
+}
+
+@keyframes screen-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--slide) * -1));
+  }
+}
+
+@keyframes screen-in {
   from {
+    opacity: 0;
+    transform: translateX(var(--slide));
+  }
+}
+
+/* Fallback for browsers without view transitions: the new screen slides in on its own. */
+.screen[data-enter="forward"] {
+  animation: screen-in 260ms var(--ease);
+}
+
+.screen[data-enter="back"] {
+  --slide: -28px;
+  animation: screen-in 260ms var(--ease);
+}
+
+.screen[data-enter="none"] {
+  animation: rise 260ms var(--ease);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
     transform: translateY(8px);
   }
 }
@@ -295,6 +389,21 @@ button {
 
 .kind:active {
   transform: scale(0.985);
+}
+
+/* The egg gives a small hop when you hover or press its card. */
+.kind .egg-art {
+  transition: transform 220ms var(--ease);
+}
+
+.kind:active .egg-art {
+  transform: translateY(-4px) rotate(-6deg);
+}
+
+@media (hover: hover) {
+  .kind:hover .egg-art {
+    transform: translateY(-4px) rotate(-6deg);
+  }
 }
 
 .kind .choice-label {
@@ -396,6 +505,7 @@ button {
 
 .choice:has(input:checked) .choice-mark {
   border: 7px solid var(--selected-edge);
+  animation: pop 300ms var(--ease);
 }
 
 .pair .choice {
@@ -419,6 +529,37 @@ button {
   display: grid;
   place-items: center;
   margin: -8px 0 16px;
+  perspective: 600px;
+}
+
+/* Picking a side flips the egg in the pan; changing the yolk gives it a wobble. */
+.preview-flip {
+  animation: flip 520ms var(--ease);
+}
+
+.preview-wobble {
+  animation: wobble 420ms var(--ease);
+}
+
+@keyframes flip {
+  0% {
+    transform: rotateY(180deg) translateY(-6px);
+  }
+  50% {
+    transform: rotateY(90deg) translateY(-14px);
+  }
+}
+
+@keyframes wobble {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.08, 0.92);
+  }
+  60% {
+    transform: scale(0.96, 1.04);
+  }
 }
 
 /* Step 3: who */
@@ -607,8 +748,15 @@ button {
   color: var(--art-ink);
 }
 
+.primary {
+  transition:
+    transform 120ms var(--ease),
+    background-color 120ms var(--ease);
+}
+
 .primary:active {
   background: var(--yolk-fill-press);
+  transform: scale(0.98);
 }
 
 .secondary {
@@ -720,6 +868,24 @@ button {
   padding-top: 24px;
 }
 
+/* The empty-state egg rocks in its cup once, as if it just sat down. */
+.empty > .egg-art {
+  transform-origin: 50% 90%;
+  animation: rock 900ms var(--ease) 200ms;
+}
+
+@keyframes rock {
+  20% {
+    transform: rotate(-9deg);
+  }
+  45% {
+    transform: rotate(6deg);
+  }
+  70% {
+    transform: rotate(-3deg);
+  }
+}
+
 .empty h2 {
   margin: 20px 0 8px;
 }
@@ -810,7 +976,10 @@ button {
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none !important;
     transition: none !important;
   }
