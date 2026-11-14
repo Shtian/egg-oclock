@@ -4,6 +4,7 @@ import { Choice, Icon, Stepper } from "./components/Choice";
 import { BoiledHalf, EggInCup, FriedEgg } from "./components/EggArt";
 import { OrderView } from "./components/OrderView";
 import { useOrder } from "./hooks/useOrder";
+import { useAppUpdate } from "./hooks/useAppUpdate";
 import { useTheme } from "./hooks/useTheme";
 import { shareUrl } from "./lib/share";
 import {
@@ -38,6 +39,7 @@ const toastDuration = (t: Toast) => (canUndo(t) ? 8000 : 4000);
 export default function App({ shared }: { shared: OrderLine[] | null }) {
   const order = useOrder(shared);
   const { theme, toggle: toggleTheme } = useTheme();
+  const update = useAppUpdate();
   // Spin the sun/moon only after a tap, not on page load.
   const [themeTapped, setThemeTapped] = useState(false);
   const { lines } = order;
@@ -166,6 +168,17 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
             </button>
           ) : null}
           <p className="brand">Egg o'clock</p>
+          {update.ready ? (
+            <button
+              type="button"
+              className="icon-button update-button"
+              onClick={update.reload}
+              aria-label="Ny versjon er klar. Trykk for å oppdatere"
+              title="Ny versjon er klar"
+            >
+              <Icon name="refresh" />
+            </button>
+          ) : null}
           <button
             type="button"
             className="icon-button theme-toggle"
