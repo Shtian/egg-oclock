@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { flushSync } from "react-dom";
 import { Choice, Icon, Stepper } from "./components/Choice";
 import { BoiledHalf, EggInCup, FriedEgg } from "./components/EggArt";
@@ -33,6 +33,7 @@ type Direction = "forward" | "back" | "none";
 /** "Angre" brings back `restoreTo` (the order) and/or `restoreNames` (the saved names). */
 type Toast = { id: number; text: string; restoreTo?: OrderLine[]; restoreNames?: string[] };
 const canUndo = (t: Toast) => Boolean(t.restoreTo || t.restoreNames);
+const toastDuration = (t: Toast) => (canUndo(t) ? 8000 : 4000);
 
 export default function App({ shared }: { shared: OrderLine[] | null }) {
   const order = useOrder(shared);
@@ -84,7 +85,7 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
   };
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), canUndo(toast) ? 8000 : 4000);
+    const t = window.setTimeout(() => setToast(null), toastDuration(toast));
     return () => window.clearTimeout(t);
   }, [toast]);
 
@@ -423,7 +424,11 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
         data-above={screen === "order" && total > 0 ? "tall" : "short"}
       >
         {toast && (
-          <div className="toast" key={toast.id}>
+          <div
+            className="toast"
+            key={toast.id}
+            style={{ "--toast-duration": `${toastDuration(toast)}ms` } as CSSProperties}
+          >
             <span>{toast.text}</span>
             {canUndo(toast) && (
               <button type="button" className="toast-undo" onClick={() => undo(toast)}>
@@ -436,6 +441,10 @@ export default function App({ shared }: { shared: OrderLine[] | null }) {
               onClick={() => setToast(null)}
               aria-label="Lukk melding"
             >
+              <svg className="toast-timer" viewBox="0 0 36 36" aria-hidden="true">
+                <circle className="toast-timer-track" cx="18" cy="18" r="16" pathLength="100" />
+                <circle className="toast-timer-ring" cx="18" cy="18" r="16" pathLength="100" />
+              </svg>
               <Icon name="close" />
             </button>
           </div>

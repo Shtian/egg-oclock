@@ -967,6 +967,45 @@ button {
   width: 44px;
 }
 
+.toast-close > * {
+  grid-area: 1 / 1;
+}
+
+.toast-close .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Countdown ring around the close icon: drains as the toast's time runs out. */
+.toast-timer {
+  width: 32px;
+  height: 32px;
+  transform: rotate(-90deg);
+}
+
+.toast-timer circle {
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.toast-timer-track {
+  stroke: currentColor;
+  opacity: 0.2;
+}
+
+.toast-timer-ring {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  animation: toast-timer var(--toast-duration, 4000ms) linear forwards;
+}
+
+@keyframes toast-timer {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+
 @keyframes toast-in {
   from {
     transform: translateY(12px);
