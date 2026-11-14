@@ -3,6 +3,7 @@ import { Choice, Icon, Stepper } from "./components/Choice";
 import { BoiledHalf, EggInCup, FriedEgg } from "./components/EggArt";
 import { OrderView } from "./components/OrderView";
 import { useOrder } from "./hooks/useOrder";
+import { useTheme } from "./hooks/useTheme";
 import {
   DONENESS,
   MAX_PER_LINE,
@@ -28,6 +29,7 @@ type Toast = { id: number; text: string; undo?: () => void };
 
 export default function App() {
   const order = useOrder();
+  const { theme, toggle: toggleTheme } = useTheme();
   const { lines } = order;
   const total = totalEggs(lines);
 
@@ -127,6 +129,14 @@ export default function App() {
             </button>
           ) : null}
           <p className="brand">Egg o'clock</p>
+          <button
+            type="button"
+            className="icon-button theme-toggle"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Bytt til lyst tema" : "Bytt til mørkt tema"}
+          >
+            <Icon name={theme === "dark" ? "sun" : "moon"} />
+          </button>
           {inWizard && total > 0 ? (
             <button type="button" className="basket" onClick={home}>
               Bestilling <span className="basket-count">{total}</span>

@@ -14,6 +14,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Egg o'clock" />
+    <script>
+      // Apply a saved theme before first paint so it never flashes the system theme.
+      // Keep the key and colours in sync with src/hooks/useTheme.ts.
+      try {
+        var theme = localStorage.getItem("egg-oclock:theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.dataset.theme = theme;
+          var bar = theme === "dark" ? "#151d2e" : "#eaf3fb";
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.content = bar;
+          });
+        }
+      } catch (e) {}
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Egg o'clock</title>

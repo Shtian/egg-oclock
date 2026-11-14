@@ -78,6 +78,8 @@ const PATHS = {
   trash: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12",
   share: "M12 4v11M8 8l4-4 4 4M6 12v7h12v-7",
   close: "M7 7l10 10M17 7 7 17",
+  sun: "M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7ZM12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4",
+  moon: "M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10Z",
 } as const;
 
 export function Icon({ name }: { name: keyof typeof PATHS }) {

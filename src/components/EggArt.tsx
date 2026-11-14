@@ -131,19 +131,14 @@ export function FriedEgg({
         </>
       ) : (
         <>
+          {/* A yolk dome that has melted into a low puddle at the bottom. */}
           <path
-            d="M19.5 31C18.5 24 25 19.5 31 20.5C37.5 21 42.5 26 40.5 32C43.5 35 45 40.5 41 41.5C38 42.5 37 39.5 35.5 39.5C31.5 42.5 24.5 42 22 37.5C20 36 19.5 33.5 19.5 31Z"
+            d="M19 28A10 10 0 0 1 39 28C39 32 41.5 34.5 43.5 37.5C45.5 40.5 43 43.5 39.5 43C36.5 42.6 35 40.5 32.5 41C29.5 41.6 26 43 23.5 41.5C21.5 40.2 22.5 37.5 21.8 35.5C20.2 33.5 19 31 19 28Z"
             fill={flipped ? "var(--yolk-cooked)" : "var(--yolk-runny)"}
             {...yolkStroke}
           />
           {!flipped && (
-            <path
-              d="M42 41.5C44 45 44.5 48 43 49"
-              fill="none"
-              stroke="var(--yolk-runny)"
-              strokeWidth={3}
-              strokeLinecap="round"
-            />
+            <ellipse cx={25.8} cy={25} rx={3} ry={2} fill="var(--egg-white)" opacity={0.75} />
           )}
         </>
       )}
