@@ -5,10 +5,19 @@ import "@fontsource/young-serif/latin-ext.css";
 import "@fontsource-variable/atkinson-hyperlegible-next";
 import "./index.css";
 import App from "./App.tsx";
+import { hasSharedOrder, linesFromSearch } from "./lib/share";
+
+/** Reads an order from a shared link once, then cleans the URL so a reload doesn't import it again. */
+function takeSharedOrder() {
+  if (!hasSharedOrder(location.search)) return null;
+  const lines = linesFromSearch(location.search, () => crypto.randomUUID());
+  history.replaceState(history.state, "", location.pathname + location.hash);
+  return lines.length > 0 ? lines : null;
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <App shared={takeSharedOrder()} />
   </StrictMode>,
 );
 

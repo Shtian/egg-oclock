@@ -7,6 +7,7 @@ import {
   type EggSpec,
   type OrderLine,
 } from "../lib/order";
+import { mergeNames } from "../lib/share";
 
 const LINES_KEY = "egg-oclock:order";
 const NAMES_KEY = "egg-oclock:names";
@@ -32,10 +33,27 @@ function write(key: string, value: unknown) {
 const parseNames = (raw: unknown) =>
   Array.isArray(raw) ? raw.filter((n): n is string => typeof n === "string") : [];
 
-/** The order, kept in localStorage so it survives closing the app. */
-export function useOrder() {
-  const [lines, setLines] = useState<OrderLine[]>(() => read(LINES_KEY, parseLines, []));
-  const [names, setNames] = useState<string[]>(() => read(NAMES_KEY, parseNames, []));
+/**
+ * The order, kept in localStorage so it survives closing the app.
+ * A `shared` order (opened from a link) replaces the saved one; `previous` is
+ * the order it replaced, for undo. Its names are added to the saved names.
+ */
+export function useOrder(shared: OrderLine[] | null = null) {
+  const [start] = useState(() => {
+    const stored = read(LINES_KEY, parseLines, []);
+    const savedNames = read(NAMES_KEY, parseNames, []);
+    if (!shared) return { lines: stored, names: savedNames, previous: null };
+    return {
+      lines: shared,
+      names: mergeNames(
+        savedNames,
+        shared.map((l) => l.who),
+      ),
+      previous: stored,
+    };
+  });
+  const [lines, setLines] = useState<OrderLine[]>(start.lines);
+  const [names, setNames] = useState<string[]>(start.names);
 
   useEffect(() => write(LINES_KEY, lines), [lines]);
   useEffect(() => write(NAMES_KEY, names), [names]);
@@ -57,5 +75,18 @@ export function useOrder() {
     setLines((prev) => changeCount(prev, id, delta));
   }, []);
 
-  return { lines, names, add, change, replace: setLines };
+  const removeName = useCallback((name: string) => {
+    setNames((prev) => prev.filter((n) => n !== name));
+  }, []);
+
+  return {
+    lines,
+    names,
+    add,
+    change,
+    replace: setLines,
+    removeName,
+    replaceNames: setNames,
+    previous: start.previous,
+  };
 }

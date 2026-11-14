@@ -4,6 +4,7 @@ import { BoiledHalf, EggInCup, FriedEgg } from "./components/EggArt";
 import { OrderView } from "./components/OrderView";
 import { useOrder } from "./hooks/useOrder";
 import { useTheme } from "./hooks/useTheme";
+import { shareUrl } from "./lib/share";
 import {
   DONENESS,
   MAX_PER_LINE,
@@ -25,10 +26,12 @@ const WIZARD: Screen[] = ["kind", "how", "who"];
 
 type HistoryState = { screen: Screen; depth: number };
 
-type Toast = { id: number; text: string; undo?: () => void };
+/** "Angre" brings back `restoreTo` (the order) and/or `restoreNames` (the saved names). */
+type Toast = { id: number; text: string; restoreTo?: OrderLine[]; restoreNames?: string[] };
+const canUndo = (t: Toast) => Boolean(t.restoreTo || t.restoreNames);
 
-export default function App() {
-  const order = useOrder();
+export default function App({ shared }: { shared: OrderLine[] | null }) {
+  const order = useOrder(shared);
   const { theme, toggle: toggleTheme } = useTheme();
   const { lines } = order;
   const total = totalEggs(lines);
@@ -56,21 +59,47 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [screen]);
 
-  const [toast, setToast] = useState<Toast | null>(null);
+  // Opened from a shared link: say so, and offer to get the replaced order back.
+  const [toast, setToast] = useState<Toast | null>(() => {
+    if (!shared) return null;
+    const previous = order.previous ?? [];
+    const replaced = previous.length > 0 && orderText(previous) !== orderText(shared);
+    const eggs = totalEggs(shared);
+    return {
+      id: 0,
+      text: replaced ? `Viser delt bestilling (${eggs} egg)` : "Viser delt bestilling",
+      restoreTo: replaced ? previous : undefined,
+    };
+  });
   const toastId = useRef(0);
-  const showToast = (text: string, undo?: () => void) => {
+  const showToast = (text: string, restoreTo?: OrderLine[]) => {
     toastId.current += 1;
-    setToast({ id: toastId.current, text, undo });
+    setToast({ id: toastId.current, text, restoreTo });
   };
   useEffect(() => {
     if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), toast.undo ? 8000 : 4000);
+    const t = window.setTimeout(() => setToast(null), canUndo(toast) ? 8000 : 4000);
     return () => window.clearTimeout(t);
   }, [toast]);
 
-  const restore = (snapshot: OrderLine[]) => () => {
-    order.replace(snapshot);
+  const undo = (t: Toast) => {
+    if (t.restoreTo) order.replace(t.restoreTo);
+    if (t.restoreNames) order.replaceNames(t.restoreNames);
     setToast(null);
+  };
+
+  const forgetName = (name: string) => {
+    const before = order.names;
+    order.removeName(name);
+    toastId.current += 1;
+    setToast({
+      id: toastId.current,
+      text: `Fjernet ${name} fra lagrede navn`,
+      restoreNames: before,
+    });
+    // The focused button is gone. Focus the name list, not the input, so no keyboard pops up.
+    const list = document.getElementById("saved-names");
+    (list ?? document.getElementById("who"))?.focus();
   };
 
   const submit = () => {
@@ -78,7 +107,7 @@ export default function App() {
     order.add(spec, count, who);
     const name = who.trim();
     const eggs = count === 1 ? "1 egg" : `${count} egg`;
-    showToast(name ? `La til ${eggs} til ${name}` : `La til ${eggs}`, restore(before));
+    showToast(name ? `La til ${eggs} til ${name}` : `La til ${eggs}`, before);
     setCount(1);
     setWho("");
     home();
@@ -91,7 +120,8 @@ export default function App() {
   };
 
   const share = async () => {
-    const text = orderText(lines);
+    const link = shareUrl(lines, location.href);
+    const text = `${orderText(lines)}\n\nSe bestillingen i appen:\n${link}`;
     try {
       if (navigator.share) {
         await navigator.share({ text });
@@ -107,7 +137,7 @@ export default function App() {
   const clear = () => {
     const before = lines;
     order.replace([]);
-    showToast("Bestillingen er tømt", restore(before));
+    showToast("Bestillingen er tømt", before);
   };
 
   const stepIndex = WIZARD.indexOf(screen);
@@ -326,19 +356,34 @@ export default function App() {
                   Så kokken vet hvem som skal ha hva.
                 </p>
                 {order.names.length > 0 && (
-                  <div className="name-chips" role="group" aria-label="Tidligere navn">
+                  <div
+                    id="saved-names"
+                    className="name-chips"
+                    role="group"
+                    aria-label="Lagrede navn"
+                    tabIndex={-1}
+                  >
                     {order.names.map((n) => (
-                      <button
-                        type="button"
-                        key={n}
-                        className="name-chip"
-                        aria-pressed={
-                          who.trim().toLocaleLowerCase("nb") === n.toLocaleLowerCase("nb")
-                        }
-                        onClick={() => setWho(n)}
-                      >
-                        {n}
-                      </button>
+                      <span key={n} className="name-chip">
+                        <button
+                          type="button"
+                          className="name-chip-pick"
+                          aria-pressed={
+                            who.trim().toLocaleLowerCase("nb") === n.toLocaleLowerCase("nb")
+                          }
+                          onClick={() => setWho(n)}
+                        >
+                          {n}
+                        </button>
+                        <button
+                          type="button"
+                          className="name-chip-remove"
+                          aria-label={`Fjern ${n} fra lagrede navn`}
+                          onClick={() => forgetName(n)}
+                        >
+                          <Icon name="close" />
+                        </button>
+                      </span>
                     ))}
                   </div>
                 )}
@@ -363,8 +408,8 @@ export default function App() {
         {toast && (
           <div className="toast" key={toast.id}>
             <span>{toast.text}</span>
-            {toast.undo && (
-              <button type="button" className="toast-undo" onClick={toast.undo}>
+            {canUndo(toast) && (
+              <button type="button" className="toast-undo" onClick={() => undo(toast)}>
                 Angre
               </button>
             )}

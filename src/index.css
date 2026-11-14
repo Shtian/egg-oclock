@@ -463,6 +463,10 @@ button {
   outline-offset: 0;
 }
 
+.name-chips:focus {
+  outline: none;
+}
+
 .name-chips {
   display: flex;
   flex-wrap: wrap;
@@ -470,18 +474,48 @@ button {
   margin-top: 12px;
 }
 
+/* A saved name: tap the name to use it, or the cross to forget it. */
 .name-chip {
-  min-height: 44px;
-  padding: 0 16px;
+  display: inline-flex;
+  align-items: stretch;
   border: 1.5px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
+}
+
+.name-chip:has([aria-pressed="true"]) {
+  border-color: var(--selected-edge);
+  background: var(--selected);
+}
+
+.name-chip button {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+}
+
+.name-chip-pick {
+  padding: 0 6px 0 16px;
+  border-radius: 999px 0 0 999px;
   font-weight: 600;
 }
 
-.name-chip[aria-pressed="true"] {
-  border-color: var(--selected-edge);
-  background: var(--selected);
+.name-chip-remove {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0 4px 0 0;
+  border-radius: 0 999px 999px 0;
+  color: var(--ink-soft);
+}
+
+.name-chip-remove .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.name-chip-remove:active {
+  background: var(--line);
 }
 
 .stepper {
