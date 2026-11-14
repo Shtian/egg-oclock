@@ -7,6 +7,7 @@ import {
   type EggSpec,
   type OrderLine,
 } from "../lib/order";
+import { newId } from "../lib/id";
 import { mergeNames } from "../lib/share";
 
 const LINES_KEY = "egg-oclock:order";
@@ -59,7 +60,7 @@ export function useOrder(shared: OrderLine[] | null = null) {
   useEffect(() => write(NAMES_KEY, names), [names]);
 
   const add = useCallback((spec: EggSpec, count: number, who: string) => {
-    setLines((prev) => addLine(prev, spec, count, who, () => crypto.randomUUID()));
+    setLines((prev) => addLine(prev, spec, count, who, newId));
     const name = normalizeName(who);
     if (name) {
       setNames((prev) =>
